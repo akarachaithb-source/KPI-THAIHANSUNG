@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THAI HANSUNG - KPI Tracking & IATF 16949 CAPA Management Dashboard</title>
+    <title>THAI HANSUNG BOLT CO., LTD. - KPI Tracking & IATF 16949 CAPA Management Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -68,13 +68,13 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 shadow-sm">
         <div class="flex items-center justify-between flex-wrap gap-4">
             <div class="flex items-center space-x-3">
-                <!-- THAIHANSUNG Brand Logo Image Box (B1.png) -->
-                <div class="bg-white px-3 py-1.5 rounded-xl shadow-sm flex items-center border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors" onclick="promptChangeLogo()" title="คลิกเพื่อปรับเปลี่ยนโลโก้">
-                    <img id="company-logo-img" src="B1.png" alt="Hansungbolt Logo" class="h-10 object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x40?text=HANSUNGBOLT';">
+                <!-- THAI HANSUNG BOLT Brand Logo Image Box (B1.png) -->
+                <div class="bg-white px-3 py-1.5 rounded-xl shadow-sm flex items-center border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors" onclick="promptChangeLogo()" title="คลิกเพื่อปรับเปลี่ยนโลโก้บริษัท">
+                    <img id="company-logo-img" src="B1.png" alt="THAI HANSUNG BOLT CO., LTD. Logo" class="h-10 object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x40?text=THAI+HANSUNG+BOLT';">
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-slate-900 leading-tight">2026 Quality & Corporate KPI Dashboard</h1>
-                    <p class="text-xs text-slate-500 font-medium">ระบบติดตาม KPI รายเดือน, แจ้งเตือน Alarm และจัดการแผนปฏิบัติการแก้ไขตามมาตรฐาน IATF 16949</p>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">THAI HANSUNG BOLT CO., LTD.</h1>
+                    <p class="text-xs text-slate-500 font-medium">2026 Quality & Corporate KPI Dashboard | ระบบติดตาม KPI รายเดือน, Alarm และจัดการ CAR/PA ตามมาตรฐาน IATF 16949</p>
                 </div>
             </div>
             
@@ -207,7 +207,7 @@
             <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i data-lucide="list-checks" class="w-5 h-5 text-indigo-400"></i>
-                    <h3 class="font-bold text-base">THAI HANSUNG - รายการ CAR/PA ทั้งหมด (Log Sheet & Attachments)</h3>
+                    <h3 class="font-bold text-base">THAI HANSUNG BOLT - รายการ CAR/PA ทั้งหมด (Log Sheet & Attachments)</h3>
                 </div>
                 <button onclick="closeCarListModal()" class="text-slate-400 hover:text-white transition-colors">
                     <i data-lucide="x" class="w-6 h-6"></i>
@@ -243,7 +243,7 @@
             <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i data-lucide="file-text" class="w-5 h-5 text-blue-400"></i>
-                    <h3 class="font-bold text-base">THAI HANSUNG - รายงาน CAR/PA</h3>
+                    <h3 class="font-bold text-base">THAI HANSUNG BOLT CO., LTD. - รายงาน CAR/PA</h3>
                 </div>
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-600 text-white px-4 py-1.5 rounded-lg font-mono font-extrabold text-base tracking-wider shadow-md border border-blue-400">
@@ -512,7 +512,7 @@
         }
 
         function promptChangeLogo() {
-            let newLogoUrl = prompt("กรุณากรอกลิงก์รูปภาพโลโก้ หรือชื่อไฟล์ภาพ (เช่น B1.png):", "B1.png");
+            let newLogoUrl = prompt("กรุณากรอกลิงก์รูปภาพโลโก้บริษัท หรือชื่อไฟล์ภาพ (เช่น B1.png):", "B1.png");
             if (newLogoUrl === null) return;
 
             document.getElementById('company-logo-img').src = newLogoUrl;
