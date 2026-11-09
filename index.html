@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THAI HANSUNG - KPI Tracking & IATF 16949 CAPA Management Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8fafc;
+        }
+        .cell-alarm { background-color: #fee2e2; color: #991b1b; font-weight: 600; }
+        .cell-pass { background-color: #dcfce7; color: #166534; font-weight: 600; }
+        .cell-empty { background-color: transparent; color: #94a3b8; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        
+        @media print {
+            @page {
+                size: A3 landscape;
+                margin: 10mm;
+            }
+            body * { visibility: hidden; }
+            /* สั่งพิมพ์เฉพาะ Dashboard เมื่อไม่ได้เปิด Modal */
+            body:not(.modal-open) main, 
+            body:not(.modal-open) main *, 
+            body:not(.modal-open) header, 
+            body:not(.modal-open) header * { 
+                visibility: visible; 
+            }
+            body:not(.modal-open) main {
+                position: absolute;
+                left: 0;
+                top: 80px;
+                width: 100%;
+            }
+            /* สั่งพิมพ์เฉพาะ Modal เมื่อเปิด Modal อยู่ */
+            body.modal-open #capa-modal, 
+            body.modal-open #capa-modal *, 
+            body.modal-open #car-list-modal, 
+            body.modal-open #car-list-modal * { 
+                visibility: visible; 
+            }
+            body.modal-open #capa-modal, 
+            body.modal-open #car-list-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                background: white !important;
+                padding: 0;
+                margin: 0;
+            }
+            .no-print, label.cursor-pointer, #nav-toolbar, #login-btn, #save-btn, #reset-btn { display: none !important; }
+            .modal-content-box { box-shadow: none !important; max-height: none !important; border: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Top Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 shadow-sm">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center space-x-3">
+                <!-- THAIHANSUNG Brand Logo Image Box (B1.png) -->
+                <div class="bg-white px-3 py-1.5 rounded-xl shadow-sm flex items-center border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors" onclick="promptChangeLogo()" title="คลิกเพื่อปรับเปลี่ยนโลโก้">
+                    <img id="company-logo-img" src="B1.png" alt="Hansungbolt Logo" class="h-10 object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x40?text=HANSUNGBOLT';">
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">2026 Quality & Corporate KPI Dashboard</h1>
+                    <p class="text-xs text-slate-500 font-medium">ระบบติดตาม KPI รายเดือน, แจ้งเตือน Alarm และจัดการแผนปฏิบัติการแก้ไขตามมาตรฐาน IATF 16949</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3 no-print">
+                <!-- Login Status Badge -->
+                <div id="login-status-badge" class="flex items-center space-x-1.5 bg-slate-100 border border-slate-300 text-slate-600 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-sm">
+                    <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                    <span id="login-status-text">View Only Mode (กรุณาล็อกอิน)</span>
+                </div>
+
+                <button onclick="toggleLoginModal()" id="login-btn" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+                    <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                    <span id="login-btn-text">Login (เข้าสู่ระบบ)</span>
+                </button>
+                
+                <div id="alarm-badge-container" class="hidden items-center space-x-2 bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-sm">
+                    <i data-lucide="bell" class="w-4 h-4 text-rose-500 animate-pulse"></i>
+                    <span id="alarm-count-badge">0 Monthly Alarms Triggered</span>
+                </div>
+                
+                <button onclick="saveAllData()" id="save-btn" class="hidden flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>บันทึกข้อมูล</span>
+                </button>
+
+                <button onclick="resetData()" id="reset-btn" title="รีเซ็ตข้อมูลทั้งหมด" class="hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Department Filter Tabs, CAR/PA List Button & Turtle Diagram Quick Toggle -->
+        <div id="nav-toolbar" class="hidden items-center justify-between flex-wrap gap-2 mt-4 bg-slate-100 p-2 rounded-xl border border-slate-200 shadow-inner no-print">
+            <div id="dept-tabs-container" class="flex items-center space-x-2 overflow-x-auto pb-1 text-xs font-semibold">
+                <span class="text-slate-600 font-bold px-2 flex items-center gap-1"><i data-lucide="filter" class="w-3.5 h-3.5"></i> แผนก:</span>
+            </div>
+            
+            <div class="flex items-center space-x-2 pr-2">
+                <!-- ปุ่มพิมพ์สรุป KPI สำหรับแต่ละแผนก (รองรับ A3 Landscape) -->
+                <button onclick="printDepartmentDashboard()" id="print-dept-btn" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span>🖨️ พิมพ์ / PDF แดชบอร์ดแผนก (A3 แนวนอน)</span>
+                </button>
+
+                <button onclick="openCarListModal()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                    <i data-lucide="list-checks" class="w-4 h-4"></i>
+                    <span>📋 LIST CAR/PA</span>
+                </button>
+
+                <button onclick="toggleTurtleFilter()" id="turtle-filter-btn" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5">
+                    <i data-lucide="check-square" class="w-4 h-4 text-blue-600"></i>
+                    <span id="turtle-filter-text">แสดงเฉพาะ Turtle Diagram & Key QC KPI</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="p-6 max-w-[1920px] mx-auto space-y-6 flex-grow w-full">
+        <!-- หน้าจอต้อนรับก่อน Login พร้อมลิงก์ Login ทางลัด https://thbcapp/login -->
+        <div id="pre-login-banner" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center space-y-4 my-12 max-w-2xl mx-auto no-print">
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                <i data-lucide="shield-check" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-900">THAI HANSUNG BOLT CO., LTD.</h2>
+            <p class="text-sm text-slate-500 max-w-md mx-auto">ระบบจัดการและติดตาม KPI ประจำปี 2026 พร้อมระบบจัดการ CAR/PA ตามมาตรฐาน IATF 16949 กรุณาเข้าสู่ระบบเพื่อใช้งานแดชบอร์ด</p>
+            <div class="pt-2 flex flex-col items-center space-y-3">
+                <button onclick="toggleLoginModal()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center gap-2">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                    <span>คลิกเพื่อเข้าสู่ระบบ (Login)</span>
+                </button>
+                <div class="text-xs text-slate-500">
+                    เข้าสู่ระบบผ่านลิงก์เซิร์ฟเวอร์หลัก: <a href="https://thbcapp/login" target="_blank" class="text-blue-600 font-semibold underline hover:text-blue-800">https://thbcapp/login</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- แดชบอร์ด KPI (แสดงผลเมื่อ Login เท่านั้น) -->
+        <div id="kpi-sections-container" class="space-y-6 hidden"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-400 no-print">
+        THAI HANSUNG BOLT CO., LTD. &copy; 2026 Quality Assurance & IATF 16949 Management System
+    </footer>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div class="flex items-center space-x-2 text-slate-900 font-bold text-base">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-blue-600"></i>
+                    <span>เข้าสู่ระบบตามแผนก (Department Login)</span>
+                </div>
+                <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">ชื่อผู้ใช้งาน (USER / ชื่อผู้รับผิดชอบ):</label>
+                    <select id="login-user-select" class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="" disabled selected>-- กรุณาเลือกผู้ใช้งาน / แผนก --</option>
+                        <option value="Addim">Admin / QMR (Addim) - ผู้ดูแลระบบและผู้อนุมัติ</option>
+                        <option value="Akarachai">Quality Assurance (Akarachai)</option>
+                        <option value="Boonserm">IT Department (Boonserm)</option>
+                        <option value="Mattana">HR Department (Mattana)</option>
+                        <option value="EUN KWAN SU">Sales & Marketing (EUN KWAN SU)</option>
+                        <option value="SEO MIN HYEON">Production (SEO MIN HYEON)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">รหัสผ่าน (PASSWORD):</label>
+                    <input type="password" id="login-pass-input" class="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="กรอกรหัสผ่านประจำตัว...">
+                </div>
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t border-slate-200 text-xs">
+                <a href="https://thbcapp/login" target="_blank" class="text-blue-600 font-semibold underline">🌐 https://thbcapp/login</a>
+                <div class="flex space-x-2">
+                    <button onclick="closeLoginModal()" class="px-4 py-2 border border-slate-300 rounded-lg font-semibold text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+                    <button onclick="verifyLogin()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm">เข้าสู่ระบบ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIST CAR/PA Modal (พร้อมเปิดดู, ปุ่มแก้ไข และปุ่มลบใบงาน) -->
+    <div id="car-list-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="list-checks" class="w-5 h-5 text-indigo-400"></i>
+                    <h3 class="font-bold text-base">THAI HANSUNG - รายการ CAR/PA ทั้งหมด (Log Sheet & Attachments)</h3>
+                </div>
+                <button onclick="closeCarListModal()" class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4">
+                <table class="w-full border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600">
+                            <th class="p-2.5 border border-slate-300 text-center w-28">CAR No.</th>
+                            <th class="p-2.5 border border-slate-300 text-left">KPI / Action Item & Month</th>
+                            <th class="p-2.5 border border-slate-300 text-center w-24">Owner</th>
+                            <th class="p-2.5 border border-slate-300 text-center w-24">Due Date</th>
+                            <th class="p-2.5 border border-slate-300 text-left w-48">เอกสารแนบ (Attachments)</th>
+                            <th class="p-2.5 border border-slate-300 text-center w-28">Status</th>
+                            <th class="p-2.5 border border-slate-300 text-center w-36">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="car-list-table-body"></tbody>
+                </table>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
+                <button onclick="closeCarListModal()" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-900">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CAPA Action Modal (IATF 16949 Form Layout) -->
+    <div id="capa-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] modal-content-box">
+            
+            <!-- Modal Header: มุมบนขวาแสดง CAR No. ขนาดใหญ่ หนา ชัดเจน -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="file-text" class="w-5 h-5 text-blue-400"></i>
+                    <h3 class="font-bold text-base">THAI HANSUNG - รายงาน CAR/PA</h3>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-600 text-white px-4 py-1.5 rounded-lg font-mono font-extrabold text-base tracking-wider shadow-md border border-blue-400">
+                        <span class="text-xs font-semibold uppercase opacity-80 mr-1.5">CAR No.</span> <span id="modal-car-no-badge">QA-2026-001</span>
+                    </div>
+                    <button onclick="closeCapaModal()" class="text-slate-400 hover:text-white transition-colors no-print">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6 overflow-y-auto space-y-4 text-sm">
+                <input type="hidden" id="modal-item-id">
+                <input type="hidden" id="modal-month-idx">
+
+                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <span class="text-slate-400 text-xs font-bold uppercase block">KPI INDICATOR / ACTION ITEM:</span>
+                        <span id="modal-kpi-name" class="font-bold text-slate-800"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-xs font-bold uppercase block">PLAN VS RESULT เดือนที่เกิด ALARM:</span>
+                        <span id="modal-kpi-status-info" class="font-bold text-rose-600"></span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">1. รายละเอียดปัญหา (PROBLEM DESCRIPTION / NON-CONFORMITY)</label>
+                    <textarea id="capa-problem" rows="2" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ระบุลักษณะปัญหาที่เกิดขึ้นจริงเมื่อเทียบกับแผน..."></textarea>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold uppercase text-slate-500">2. การวิเคราะห์สาเหตุเชิงลึก (ROOT CAUSE ANALYSIS - 5 WHY ANALYSIS)</label>
+                        <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-300 transition-colors">
+                            <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i>
+                            <span>แนบไฟล์เอกสารเพิ่มเติม</span>
+                            <input type="file" id="file-rootcause" class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="handleFileAttachment('rootcause', this)">
+                        </label>
+                    </div>
+                    <textarea id="capa-rootcause" rows="3" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Why 1: ...&#10;Why 2: ...&#10;Root Cause: ..."></textarea>
+                    <div id="attachment-list-rootcause" class="text-xs text-blue-600 mt-1 space-y-1"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold uppercase text-slate-500">3.1 มาตรการแก้ไขเฉพาะหน้า (CONTAINMENT ACTION)</label>
+                            <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 border border-slate-300 transition-colors">
+                                <i data-lucide="paperclip" class="w-3 h-3 text-blue-600"></i>
+                                <span>แนบไฟล์/รูป</span>
+                                <input type="file" id="file-containment" class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="handleFileAttachment('containment', this)">
+                            </label>
+                        </div>
+                        <textarea id="capa-containment" rows="2" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="มาตรการคัดแยกและควบคุมทันที..."></textarea>
+                        <div id="attachment-list-containment" class="text-xs text-blue-600 mt-1 space-y-1"></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold uppercase text-slate-500">3.2 มาตรการป้องกันการเกิดซ้ำ (PREVENTIVE ACTION)</label>
+                            <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 border border-slate-300 transition-colors">
+                                <i data-lucide="paperclip" class="w-3 h-3 text-blue-600"></i>
+                                <span>แนบไฟล์/รูป</span>
+                                <input type="file" id="file-preventive" class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="handleFileAttachment('preventive', this)">
+                            </label>
+                        </div>
+                        <textarea id="capa-preventive" rows="2" class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ปรับปรุงกระบวนการ/WI/Mistake Proofing..."></textarea>
+                        <div id="attachment-list-preventive" class="text-xs text-blue-600 mt-1 space-y-1"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">ผู้รับผิดชอบ (OWNER)</label>
+                        <select id="capa-owner-select" onchange="updateOwnerSignature(this.value)" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <!-- Options จะถูกอัปเดตแบบ Dynamic ตามแผนก -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">กำหนดเสร็จ (DUE DATE)</label>
+                        <input type="date" id="capa-duedate" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">สถานะ ACTION (STATUS)</label>
+                        <select id="capa-status" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-100 text-slate-700 font-semibold" disabled>
+                            <option value="Pending Response">รอผู้รับผิดชอบกรอกข้อมูล (Pending Response)</option>
+                            <option value="Pending Approval">รอการตรวจสอบ (Pending Approval)</option>
+                            <option value="Completed">อนุมัติเรียบร้อย (Completed / Approved)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- QMR Approval Details Box -->
+                <div id="qmr-approval-box" class="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-1 text-xs">
+                    <div class="font-bold text-emerald-800 flex items-center space-x-1.5">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                        <span>สถานะการตรวจสอบโดย QMR (QMR Approval Section)</span>
+                    </div>
+                    <div id="qmr-status-info-text" class="text-slate-600">ยังไม่ได้รับการอนุมัติจาก QMR</div>
+                </div>
+
+                <!-- ช่องลงลายเซ็นสำหรับพิมพ์เอกสาร (Signatures Section for Print) -->
+                <div class="border-t-2 border-dashed border-slate-300 pt-6 mt-6 grid grid-cols-3 gap-6 text-center text-xs">
+                    <div class="space-y-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="font-bold text-slate-700 uppercase">ผู้จัดทำรายงาน (Prepared by)</div>
+                        <div class="border-b border-slate-400 pb-1 text-slate-600 font-semibold">
+                            <span id="sign-prepared-name">___________________________</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500">วันที่: ____/____/________</div>
+                    </div>
+                    <div class="space-y-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="font-bold text-slate-700 uppercase">ผู้รับผิดชอบดำเนินการ (Action Owner)</div>
+                        <div class="border-b border-slate-400 pb-1 text-slate-600 font-semibold">
+                            <span id="sign-owner-name">___________________________</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500">วันที่: ____/____/________</div>
+                    </div>
+                    <div class="space-y-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="font-bold text-slate-700 uppercase">ผู้ออนุมัติ / QMR (Approved by)</div>
+                        <div class="border-b border-slate-400 pb-1 text-slate-600 font-semibold">
+                            <span>Mr. KIM</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500">วันที่: ____/____/________</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center no-print">
+                <button onclick="printCapaForm()" class="flex items-center space-x-1.5 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span>Print CAR/PA Form</span>
+                </button>
+                <div class="flex space-x-3">
+                    <button onclick="closeCapaModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">ยกเลิก</button>
+                    <button onclick="saveCapaAction()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-md shadow-blue-500/20 transition-colors">บันทึก Action Plan</button>
+                    <button id="qmr-approve-btn" onclick="approveByQMR()" class="hidden px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-md shadow-emerald-500/20 transition-colors flex items-center space-x-1">
+                        <i data-lucide="check-check" class="w-4 h-4"></i>
+                        <span>Approve CAR/PA (QMR)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Script Section -->
+    <script>
+        const initialData = [
+            {
+                deptKey: "Quality",
+                deptName: "Quality Assurance",
+                recorder: "Akarachai",
+                pass: "111220",
+                category: "Quality Assurance",
+                items: [
+                    { id: "qa-1", name: "Reduction of Incoming Inspection Defects", targetText: "12 Cases", targetVal: 12, compType: "min_better", pastPerf: "22 Cases", isTurtleKey: true, plans: [1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1], results: [2, 3, 3, 1, 1, 2, 2, 2, 1, null, null, null] },
+                    { id: "qa-2", name: "Reduction of Process Scrap(Defect) Rate", targetText: "1,275 PPM", targetVal: 1275, compType: "min_better", pastPerf: "1,342 PPM", isTurtleKey: false, plans: [1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275], results: [1144, 2611, 398, 1373, 1161, 1623, 655, 954, 320, null, null, null] },
+                    { id: "qa-3", name: "Customer Complaint", targetText: "Zero", targetVal: 0, compType: "min_better", pastPerf: "21 Cases", isTurtleKey: true, plans: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], results: [1, 1, 1, 0, 0, 1, 1, 0, 0, null, null, null] },
+                    { id: "qa-4", name: "Supplier-caused Customer Impact · Premium Freight", targetText: "Zero", targetVal: 0, compType: "min_better", pastPerf: "0 Case", isTurtleKey: false, plans: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], results: [0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null] },
+                    { id: "qa-5", name: "Customer Complaint (NG / Delivery / Claim)", targetText: "500 PPM ↓", targetVal: 500, compType: "min_better", pastPerf: "596 PPM", isTurtleKey: false, plans: [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500], results: [366, 363, 344, 0, 0, 383, 379, 0, 0, null, null, null] }
+                ]
+            },
+            {
+                deptKey: "Quality",
+                deptName: "Quality Assurance",
+                recorder: "Akarachai",
+                pass: "111220",
+                category: "Quality Assurance (Automotive)",
+                items: [
+                    { id: "qaa-1", name: "Customer Complaint", targetText: "Zero", targetVal: 0, compType: "min_better", pastPerf: "0 Case", isTurtleKey: true, plans: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], results: [0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null] },
+                    { id: "qaa-2", name: "Reduction of Process Scrap Rate (Defects)", targetText: "1,275 PPM", targetVal: 1275, compType: "min_better", pastPerf: "- (New)", isTurtleKey: false, plans: [1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275, 1275], results: [414, 1793, null, null, 702, null, null, null, null, null, null, null] },
+                    { id: "qaa-3", name: "On-Time APQP Completion", targetText: "Rate : 100%", targetVal: 100, compType: "max_better", pastPerf: "When Applicable", isTurtleKey: true, plans: [null, null, null, null, null, null, null, null, null, null, null, null], results: [0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null] }
+                ]
+            },
+            {
+                deptKey: "Quality",
+                deptName: "Quality Assurance",
+                recorder: "Akarachai",
+                pass: "111220",
+                category: "Quality Management",
+                items: [
+                    { id: "qm-1", name: "ISO Surveillance Audit (9001, 14001, 45001)", targetText: "1 / Year", targetVal: 1, compType: "max_better", pastPerf: "-", isTurtleKey: false, plans: [0,0,0,0,0,0,0,0,1,0,0,0], results: [null,null,null,null,null,null,null,null,1,null,null,null] },
+                    { id: "qm-2", name: "IATF 16949 System Development & Certification", targetText: "1 / Year", targetVal: 1, compType: "max_better", pastPerf: "-", isTurtleKey: false, plans: [0,0,0,1,1,1,1,0,0,0,0,0], results: [null,null,null,1,1,1,1,null,null,null,null,null] },
+                    { id: "qm-3", name: "IA Corrective Action On-time Rate", targetText: "100%", targetVal: 100, compType: "max_better", pastPerf: "-", isTurtleKey: true, plans: [null,null,null,null,null,1,null,null,null,null,null,null], results: [null,null,null,null,null,100,null,null,null,null,null,null] },
+                    { id: "qm-4", name: "Annual Document Review (DCC)", targetText: "100%", targetVal: 100, compType: "max_better", pastPerf: "-", isTurtleKey: true, plans: [null,null,null,null,null,null,null,null,1,null,null,null], results: [null,null,null,null,null,null,null,null,100,null,null,null] },
+                    { id: "qm-5", name: "Cost Of Poor Quality", targetText: "≤ 13,000 THB", targetVal: 13000, compType: "min_better", pastPerf: "-", isTurtleKey: true, plans: [13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000], results: [12563, 12563, 12563, 12563, 12563, 12563, 12563, 12563, 12563, 0, 0, null] }
+                ]
+            },
+            {
+                deptKey: "IT",
+                deptName: "IT Department",
+                recorder: "Boonserm",
+                pass: "111221",
+                category: "IT Department Objectives",
+                items: [
+                    { id: "it-1", name: "System Backup (Backup ERP)", targetText: "1 / Month", targetVal: 1, compType: "max_better", pastPerf: "100%", isTurtleKey: false, plans: [1,1,1,1,1,1,1,1,1,1,1,1], results: [1,1,1,1,1,1,1,1,0,1,1,1] },
+                    { id: "it-2", name: "Internet Connection Availability", targetText: "99%", targetVal: 99, compType: "max_better", pastPerf: "97%", isTurtleKey: false, plans: [99,99,99,99,99,99,99,99,99,99,99,99], results: [99,100,100,99,100,99,99,99,100,100,100,null] }
+                ]
+            },
+            {
+                deptKey: "HR",
+                deptName: "HR Department",
+                recorder: "Mattana",
+                pass: "111222",
+                category: "HR Department Objectives",
+                items: [
+                    { id: "hr-1", name: "Employee Turnover Rate", targetText: "≤ 2.0%", targetVal: 2.0, compType: "min_better", pastPerf: "2.5%", isTurtleKey: false, plans: [2,2,2,2,2,2,2,2,2,2,2,2], results: [1.8,1.5,2.2,1.9,1.6,2.1,1.7,1.4,null,null,null,null] },
+                    { id: "hr-2", name: "Annual Training Hours per Person", targetText: "≥ 18 Hrs", targetVal: 18, compType: "max_better", pastPerf: "16 Hrs", isTurtleKey: false, plans: [1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5], results: [2,3,1,4,2,3,2,3,null,null,null,null] }
+                ]
+            },
+            {
+                deptKey: "Sales",
+                deptName: "Sales & Marketing",
+                recorder: "EUN KWAN SU",
+                pass: "111223",
+                category: "Sales Objectives and Key Action Plan Y2026",
+                items: [
+                    { id: "sales-1", name: "On-Time Delivery Rate", targetText: "≥ 98%", targetVal: 98, compType: "max_better", pastPerf: "97%", isTurtleKey: false, plans: [98,98,98,98,98,98,98,98,98,98,98,98], results: [98,98,98,99,99,100,99,99,99,null,null,null] },
+                    { id: "sales-2", name: "Premium Freight Incidents", targetText: "0 Cases", targetVal: 0, compType: "min_better", pastPerf: "0 Cases", isTurtleKey: false, plans: [0,0,0,0,0,0,0,0,0,0,0,0], results: [0,0,0,0,0,0,0,0,0,null,null,null] },
+                    { id: "sales-3", name: "Cycle Counting Completion Rate", targetText: "≥ 80%", targetVal: 80, compType: "max_better", pastPerf: "99%", isTurtleKey: false, plans: [80,80,80,80,80,80,80,80,80,80,80,80], results: [100,100,100,100,83,100,100,88,96,null,null,null] },
+                    { id: "sales-4", name: "Inventory Accuracy", targetText: "≥ 98%", targetVal: 98, compType: "max_better", pastPerf: "99%", isTurtleKey: false, plans: [98,98,98,98,98,98,98,98,98,98,98,98], results: [100,100,100,100,100,99,99,100,98,null,null,null] },
+                    { id: "sales-5", name: "Annual Sales Revenue", targetText: "≥ THB 393M", targetVal: 33, compType: "max_better", pastPerf: "THB 383M", isTurtleKey: false, plans: [33,33,33,33,33,33,33,33,33,32,32,32], results: [33,28,29,25,27,27,28,27,27,null,null,null] },
+                    { id: "sales-6", name: "Sales Plan Achievement Rate", targetText: "≥ 95%", targetVal: 95, compType: "max_better", pastPerf: "92%", isTurtleKey: false, plans: [95,95,95,95,95,95,95,95,95,95,95,95], results: [107,91,93,87,91,104,99,96,100,null,null,null] },
+                    { id: "sales-7", name: "Forecast Accuracy", targetText: "≥ 85%", targetVal: 85, compType: "max_better", pastPerf: "76%", isTurtleKey: false, plans: [85,85,85,85,85,85,85,85,85,85,85,85], results: [86,82,84,72,73,74,82,76,80,null,null,null] },
+                    { id: "sales-8", name: "Hanon Supplier Performance Report", targetText: "≥ 1,000", targetVal: 1000, compType: "max_better", pastPerf: "1,400", isTurtleKey: false, plans: [1300,1300,1300,1300,1300,1300,1300,1300,1300,1300,1300,1300], results: [1300,1300,1300,1300,1300,1300,1300,1300,1300,null,null,null] }
+                ]
+            },
+            {
+                deptKey: "Production",
+                deptName: "Production",
+                recorder: "SEO MIN HYEON",
+                pass: "111224",
+                category: "Production Objectives and Key Action Plan Y2026",
+                items: [
+                    { id: "prod-1", name: "Equipment Operating Rate (%)", targetText: "78%", targetVal: 78, compType: "max_better", pastPerf: "73%", isTurtleKey: false, plans: [78,78,78,78,78,78,78,78,78,78,78,78], results: [70, 67, 70, 67, 69, 65, 68, 69, null, null, null, null] },
+                    { id: "prod-2", name: "Preventive Maintenance Completion Rate", targetText: "100%", targetVal: 100, compType: "max_better", pastPerf: "-", isTurtleKey: false, plans: [100,100,100,100,100,100,100,100,100,100,100,100], results: [100, 100, 100, 100, 100, 0, 0, 0, null, null, null, null] },
+                    { id: "prod-3", name: "Supplier On-Time Delivery Rate", targetText: "90%", targetVal: 90, compType: "max_better", pastPerf: "-", isTurtleKey: false, plans: [90,90,90,90,90,90,90,90,90,90,90,90], results: [99, 99, 100, 94, 99, 99, 95, 100, 97, null, null, null] },
+                    { id: "prod-4", name: "Production Plan Achievement Rate", targetText: "85%", targetVal: 85, compType: "max_better", pastPerf: "94%", isTurtleKey: false, plans: [85,85,85,85,85,85,85,85,85,85,85,85], results: [88, 82, 87, 83, 89, 87, 90, 91, 94, null, null, null] },
+                    { id: "prod-5", name: "Equipment Breakdown Cases", targetText: "≤ 5 / Month", targetVal: 5, compType: "min_better", pastPerf: "≤ 6 / Mo (54)", isTurtleKey: false, plans: [5,5,5,5,5,5,5,5,5,5,5,5], results: [7, 4, 5, 4, 7, 4, 5, 7, 3, null, null, null] }
+                ]
+            }
+        ];
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let storeData = [];
+        let capaRecords = {};
+        let currentUser = null;
+        let currentFilter = 'All';
+        let showOnlyTurtle = false;
+
+        function initApp() {
+            const saved = localStorage.getItem('kpi_thaihansung_carlist_b1_data');
+            const savedCapa = localStorage.getItem('kpi_thaihansung_carlist_b1_capa');
+            const savedLogo = localStorage.getItem('kpi_thaihansung_logo_b1');
+            
+            storeData = saved ? JSON.parse(saved) : initialData;
+            capaRecords = savedCapa ? JSON.parse(savedCapa) : {};
+            
+            if (savedLogo) {
+                document.getElementById('company-logo-img').src = savedLogo;
+            }
+
+            document.getElementById('pre-login-banner').classList.remove('hidden');
+            document.getElementById('kpi-sections-container').classList.add('hidden');
+            document.getElementById('nav-toolbar').classList.add('hidden');
+            document.getElementById('alarm-badge-container').classList.add('hidden');
+        }
+
+        function promptChangeLogo() {
+            let newLogoUrl = prompt("กรุณากรอกลิงก์รูปภาพโลโก้ หรือชื่อไฟล์ภาพ (เช่น B1.png):", "B1.png");
+            if (newLogoUrl === null) return;
+
+            document.getElementById('company-logo-img').src = newLogoUrl;
+            localStorage.setItem('kpi_thaihansung_logo_b1', newLogoUrl);
+            alert('✨ เปลี่ยนโลโก้บริษัทเรียบร้อยแล้ว!');
+        }
+
+        function toggleTurtleFilter() {
+            showOnlyTurtle = !showOnlyTurtle;
+            const btnText = document.getElementById('turtle-filter-text');
+            const btnEl = document.getElementById('turtle-filter-btn');
+            
+            if (showOnlyTurtle) {
+                btnText.innerText = "แสดง KPI ทั้งหมด (Show All)";
+                btnEl.className = "px-3.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5";
+            } else {
+                btnText.innerText = "แสดงเฉพาะ Turtle Diagram & Key QC KPI";
+                btnEl.className = "px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5";
+            }
+            renderDashboard();
+        }
+
+        function toggleLoginModal() {
+            if (currentUser) {
+                if (confirm("ต้องการออกจากระบบหรือไม่?")) {
+                    currentUser = null;
+                    currentFilter = 'All';
+                    document.getElementById('login-status-badge').className = "flex items-center space-x-1.5 bg-slate-100 border border-slate-300 text-slate-600 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-sm";
+                    document.getElementById('login-status-badge').innerHTML = '<i data-lucide="lock" class="w-3.5 h-3.5"></i><span id="login-status-text">View Only Mode</span>';
+                    document.getElementById('login-btn-text').innerText = 'Login (เข้าสู่ระบบ)';
+                    document.getElementById('save-btn').classList.add('hidden');
+                    document.getElementById('reset-btn').classList.add('hidden');
+                    
+                    document.getElementById('pre-login-banner').classList.remove('hidden');
+                    document.getElementById('kpi-sections-container').classList.add('hidden');
+                    document.getElementById('nav-toolbar').classList.add('hidden');
+                    document.getElementById('alarm-badge-container').classList.add('hidden');
+                    
+                    alert('ออกจากระบบเรียบร้อยแล้ว');
+                }
+            } else {
+                document.getElementById('login-user-select').value = "";
+                document.getElementById('login-pass-input').value = '';
+                document.getElementById('login-modal').classList.remove('hidden');
+            }
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+        }
+
+        function verifyLogin() {
+            const user = document.getElementById('login-user-select').value;
+            const pass = document.getElementById('login-pass-input').value.trim();
+
+            if (!user) {
+                alert('⚠️ กรุณาเลือกชื่อผู้ใช้งานจากรายการ');
+                return;
+            }
+
+            if (user === 'Addim' && pass === '111220') {
+                currentUser = 'Addim';
+                currentFilter = 'All';
+                setupLoggedInUI('Admin / QMR (Addim)');
+            } else {
+                let matchedDept = initialData.find(sec => sec.recorder === user && sec.pass === pass);
+                if (matchedDept) {
+                    currentUser = matchedDept.deptKey;
+                    currentFilter = matchedDept.deptKey;
+                    setupLoggedInUI(`${matchedDept.deptName} (${matchedDept.recorder})`);
+                } else {
+                    alert('❌ รหัสผ่านไม่ถูกต้องสำหรับผู้ใช้งานนี้!');
+                    return;
+                }
+            }
+            closeLoginModal();
+
+            document.getElementById('pre-login-banner').classList.add('hidden');
+            document.getElementById('kpi-sections-container').classList.remove('hidden');
+            document.getElementById('nav-toolbar').classList.remove('hidden');
+            document.getElementById('alarm-badge-container').classList.remove('hidden');
+            document.getElementById('alarm-badge-container').classList.add('flex');
+
+            renderTabs();
+            renderDashboard();
+        }
+
+        function setupLoggedInUI(roleText) {
+            document.getElementById('login-status-badge').className = "flex items-center space-x-1.5 bg-emerald-50 border border-emerald-300 text-emerald-700 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-sm";
+            document.getElementById('login-status-badge').innerHTML = `<i data-lucide="shield-check" class="w-3.5 h-3.5"></i><span>Log in: ${roleText}</span>`;
+            document.getElementById('login-btn-text').innerText = 'Logout (ออกจากระบบ)';
+            document.getElementById('save-btn').classList.remove('hidden');
+            document.getElementById('reset-btn').classList.remove('hidden');
+            alert(`🔓 เข้าสู่ระบบสำเร็จ! โหมดสิทธิ์: ${roleText}`);
+        }
+
+        function saveAllData() {
+            if (!currentUser) return alert('กรุณาล็อกอินก่อนบันทึกข้อมูล');
+            try {
+                localStorage.setItem('kpi_thaihansung_carlist_b1_data', JSON.stringify(storeData));
+                localStorage.setItem('kpi_thaihansung_carlist_b1_capa', JSON.stringify(capaRecords));
+                alert('💾 บันทึกข้อมูลลงในระบบเรียบร้อยแล้ว!');
+                renderDashboard();
+            } catch (e) {
+                alert('⚠️ ไม่สามารถบันทึกข้อมูลได้ เนื่องจากพื้นที่หน่วยความจำ LocalStorage เต็ม (แนะนำให้ลบบางไฟล์แนบที่มีขนาดใหญ่)');
+            }
+        }
+
+        function resetData() {
+            if (currentUser !== 'Addim') return alert('เฉพาะ Admin / QMR (Addim) เท่านั้นที่สามารถรีเซ็ตข้อมูลทั้งหมดได้');
+            if (confirm("⚠️ คุณต้องการรีเซ็ตข้อมูลทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?")) {
+                localStorage.removeItem('kpi_thaihansung_carlist_b1_data');
+                localStorage.removeItem('kpi_thaihansung_carlist_b1_capa');
+                storeData = JSON.parse(JSON.stringify(initialData));
+                capaRecords = {};
+                renderDashboard();
+            }
+        }
+
+        function renderTabs() {
+            const tabsContainer = document.getElementById('dept-tabs-container');
+            let tabsHtml = `<span class="text-slate-600 font-bold px-2 flex items-center gap-1"><i data-lucide="filter" class="w-3.5 h-3.5"></i> แผนก:</span>`;
+
+            if (currentUser === 'Addim') {
+                tabsHtml += `
+                    <button onclick="filterDepartment('All')" id="tab-All" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'All' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">ทั้งหมด (All)</button>
+                    <button onclick="filterDepartment('Quality')" id="tab-Quality" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'Quality' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">Quality Assurance (Akarachai)</button>
+                    <button onclick="filterDepartment('IT')" id="tab-IT" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'IT' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">IT Department (Boonserm)</button>
+                    <button onclick="filterDepartment('HR')" id="tab-HR" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'HR' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">HR Department (Mattana)</button>
+                    <button onclick="filterDepartment('Sales')" id="tab-Sales" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'Sales' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">Sales & Marketing (EUN KWAN SU)</button>
+                    <button onclick="filterDepartment('Production')" id="tab-Production" class="dept-tab px-3.5 py-2 rounded-lg ${currentFilter === 'Production' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-300'} transition-all whitespace-nowrap">Production (SEO MIN HYEON)</button>
+                `;
+            } else if (currentUser) {
+                let deptLabelMap = { 'Quality': 'Quality Assurance', 'IT': 'IT Department', 'HR': 'HR Department', 'Sales': 'Sales & Marketing', 'Production': 'Production' };
+                tabsHtml += `
+                    <button onclick="filterDepartment('${currentUser}')" id="tab-${currentUser}" class="dept-tab px-3.5 py-2 rounded-lg bg-blue-600 text-white shadow-sm transition-all whitespace-nowrap">${deptLabelMap[currentUser]}</button>
+                `;
+            }
+            tabsContainer.innerHTML = tabsHtml;
+            
+            const printBtn = document.getElementById('print-dept-btn');
+            if (currentFilter === 'All' && currentUser === 'Addim') {
+                printBtn.querySelector('span').innerText = "🖨️ พิมพ์ / PDF แดชบอร์ดภาพรวมทั้งหมด (A3 แนวนอน)";
+            } else {
+                printBtn.querySelector('span').innerText = "🖨️ พิมพ์ / PDF แดชบอร์ดแผนก (A3 แนวนอน)";
+            }
+
+            lucide.createIcons();
+        }
+
+        function filterDepartment(dept) {
+            currentFilter = dept;
+            renderTabs();
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const container = document.getElementById('kpi-sections-container');
+            container.innerHTML = '';
+            let totalAlarms = 0;
+
+            storeData.forEach((sec) => {
+                if (currentUser && currentUser !== 'Addim' && sec.deptKey !== currentUser) return;
+                if (currentUser === 'Addim' && currentFilter !== 'All' && sec.deptKey !== currentFilter) return;
+
+                let filteredItems = sec.items.filter(item => {
+                    if (showOnlyTurtle) return item.isTurtleKey;
+                    return true;
+                });
+
+                if (filteredItems.length === 0) return;
+
+                const sectionEl = document.createElement('div');
+                sectionEl.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6";
+                
+                let rowsHtml = '';
+                filteredItems.forEach((item) => {
+                    let totalResult = 0;
+                    let validMonthsCount = 0;
+                    let monthCellsHtml = '';
+
+                    for (let mIdx = 0; mIdx < 12; mIdx++) {
+                        let planVal = item.plans[mIdx];
+                        let resVal = item.results[mIdx];
+                        let cellClass = 'cell-empty';
+                        let isAlarm = false;
+
+                        if (resVal !== null && resVal !== undefined && resVal !== "") {
+                            totalResult += Number(resVal);
+                            validMonthsCount++;
+                            if (item.compType === 'min_better') {
+                                if (Number(resVal) > item.targetVal) {
+                                    cellClass = 'cell-alarm';
+                                    isAlarm = true;
+                                    totalAlarms++;
+                                } else {
+                                    cellClass = 'cell-pass';
+                                }
+                            } else if (item.compType === 'max_better') {
+                                if (item.targetText.includes('/ Year') || item.targetText.includes('/ Month')) {
+                                    if (Number(resVal) >= 1) {
+                                        cellClass = 'cell-pass';
+                                    } else {
+                                        cellClass = 'cell-empty';
+                                    }
+                                } else {
+                                    if (Number(resVal) < item.targetVal) {
+                                        cellClass = 'cell-alarm';
+                                        isAlarm = true;
+                                        totalAlarms++;
+                                    } else {
+                                        cellClass = 'cell-pass';
+                                    }
+                                }
+                            }
+                        }
+
+                        const capaKey = `${item.id}_${mIdx}`;
+                        const hasCapa = capaRecords[capaKey];
+                        const capaStatus = hasCapa ? hasCapa.status : null;
+
+                        let actionBtn = '';
+                        if (isAlarm) {
+                            if (capaStatus === 'Completed') {
+                                actionBtn = `<button onclick="openCapaModal('${item.id}', ${mIdx})" class="px-1.5 py-0.5 bg-emerald-50 border border-emerald-300 text-emerald-700 rounded text-[9px] font-semibold">✓ Closed</button>`;
+                            } else if (capaStatus === 'Pending Approval') {
+                                actionBtn = `<button onclick="openCapaModal('${item.id}', ${mIdx})" class="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-bold animate-pulse">⏳ รอตรวจสอบ</button>`;
+                            } else {
+                                actionBtn = `<button onclick="openCapaModal('${item.id}', ${mIdx})" class="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[9px] font-bold animate-pulse">+ CAPA</button>`;
+                            }
+                        }
+
+                        let canEdit = currentUser === 'Addim' || currentUser === sec.deptKey;
+                        let planInputAttr = canEdit ? `value="${planVal !== null && planVal !== undefined ? planVal : ''}" onchange="updatePlanValue('${item.id}', ${mIdx}, this.value)"` : `value="${planVal !== null && planVal !== undefined ? planVal : ''}" disabled`;
+                        let resInputAttr = canEdit ? `value="${resVal !== null && resVal !== undefined ? resVal : ''}" onchange="updateResultValue('${item.id}', ${mIdx}, this.value)"` : `value="${resVal !== null && resVal !== undefined ? resVal : ''}" disabled`;
+
+                        monthCellsHtml += `
+                            <td class="p-1 border border-slate-200 text-center text-xs ${cellClass}">
+                                <div class="flex flex-col space-y-0.5">
+                                    <div class="text-[10px] text-slate-400 font-medium border-b border-slate-100 pb-0.5">
+                                        P: <input type="number" ${planInputAttr} class="w-10 text-center bg-transparent border-none outline-none text-[10px]">
+                                    </div>
+                                    <div class="font-semibold">
+                                        R: <input type="number" ${resInputAttr} class="w-10 text-center bg-transparent border-none outline-none font-semibold text-xs">
+                                    </div>
+                                    <div class="no-print">${actionBtn}</div>
+                                </div>
+                            </td>
+                        `;
+                    }
+
+                    let avgOrTotalDisplay = validMonthsCount > 0 ? (item.targetText.includes('%') ? (totalResult / validMonthsCount).toFixed(1) + '%' : totalResult) : '-';
+                    let itemNameStyle = item.isTurtleKey ? "font-bold text-slate-900 text-[13px] bg-blue-50/40 p-1 rounded border-l-4 border-blue-600" : "font-semibold text-slate-800";
+
+                    rowsHtml += `
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="p-3 border border-slate-200 text-xs ${itemNameStyle}">
+                                <div>${item.name} ${item.isTurtleKey ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-normal ml-1">Turtle Key KPI</span>' : ''}</div>
+                                <div class="text-[10px] text-slate-400 font-normal">${sec.category}</div>
+                            </td>
+                            <td class="p-2 border border-slate-200 text-center text-xs font-medium text-slate-600 whitespace-nowrap">${item.targetText}</td>
+                            <td class="p-2 border border-slate-200 text-center text-xs text-slate-400">${item.pastPerf}</td>
+                            <td class="p-2 border border-slate-200 text-center text-xs font-bold text-slate-900 bg-slate-50">${avgOrTotalDisplay}</td>
+                            ${monthCellsHtml}
+                        </tr>
+                    `;
+                });
+
+                sectionEl.innerHTML = `
+                    <div class="bg-slate-100 px-4 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="folder" class="w-4 h-4 text-blue-600"></i>
+                            <h2 class="font-bold text-sm text-slate-700 uppercase tracking-wide">${sec.category}</h2>
+                        </div>
+                        <div class="flex items-center space-x-2 bg-white px-3 py-1 rounded-lg border border-slate-300 text-xs shadow-sm">
+                            <span class="text-slate-500 font-medium">ผู้รับผิดชอบ:</span>
+                            <span class="font-bold text-blue-700">${sec.recorder}</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 text-[11px] font-semibold">
+                                    <th class="p-2 border border-slate-200 text-left w-72">Action Items / KPI</th>
+                                    <th class="p-2 border border-slate-200 text-center w-28">2026 Target</th>
+                                    <th class="p-2 border border-slate-200 text-center w-24">2025 Perf.</th>
+                                    <th class="p-2 border border-slate-200 text-center w-16">Summary</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Jan</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Feb</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Mar</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Apr</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">May</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Jun</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Jul</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Aug</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Sep</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Oct</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Nov</th>
+                                    <th class="p-2 border border-slate-200 text-center w-20">Dec</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(sectionEl);
+            });
+
+            document.getElementById('alarm-count-badge').innerText = `${totalAlarms} Monthly Alarms Triggered`;
+            lucide.createIcons();
+        }
+
+        function updatePlanValue(itemId, monthIdx, val) {
+            storeData.forEach(sec => {
+                if (currentUser !== 'Addim' && currentUser !== sec.deptKey) return;
+                sec.items.forEach(item => {
+                    if (item.id === itemId) item.plans[monthIdx] = val !== "" ? Number(val) : null;
+                });
+            });
+        }
+
+        function updateResultValue(itemId, monthIdx, val) {
+            storeData.forEach(sec => {
+                if (currentUser !== 'Addim' && currentUser !== sec.deptKey) return;
+                sec.items.forEach(item => {
+                    if (item.id === itemId) item.results[monthIdx] = val !== "" ? Number(val) : null;
+                });
+            });
+            renderDashboard();
+        }
+
+        // ฟังก์ชันสั่งพิมพ์สรุป KPI (ตั้งค่าเป็น A3 แนวนอนเรียบร้อย)
+        function printDepartmentDashboard() {
+            document.body.classList.remove('modal-open');
+            window.print();
+        }
+
+        function openBase64File(base64Data, fileName, mimeType) {
+            try {
+                if (!base64Data || base64Data === '#') {
+                    alert('ไม่พบข้อมูลไฟล์แนบ');
+                    return;
+                }
+                const arr = base64Data.split(',');
+                const mime = mimeType || (arr[0].match(/:(.*?);/) ? arr[0].match(/:(.*?);/)[1] : 'application/pdf');
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while(n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const blob = new Blob([u8arr], {type: mime});
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+            } catch (err) {
+                alert('ไม่สามารถเปิดไฟล์ได้: ' + err.message);
+            }
+        }
+
+        function handleFileAttachment(section, input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const itemId = document.getElementById('modal-item-id').value;
+                const monthIdx = document.getElementById('modal-month-idx').value;
+                const capaKey = `${itemId}_${monthIdx}`;
+
+                if (!capaRecords[capaKey]) capaRecords[capaKey] = {};
+                if (!capaRecords[capaKey].attachments) capaRecords[capaKey].attachments = { rootcause: [], containment: [], preventive: [] };
+
+                if (file.type && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 800;
+                            const MAX_HEIGHT = 800;
+                            let width = img.width;
+                            let height = img.height;
+
+                            if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                    height *= MAX_WIDTH / width;
+                                    width = MAX_WIDTH;
+                                }
+                            } else {
+                                if (height > MAX_HEIGHT) {
+                                    width *= MAX_HEIGHT / height;
+                                    height = MAX_HEIGHT;
+                                }
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                            const fileObj = {
+                                name: file.name,
+                                type: 'image/jpeg',
+                                data: compressedDataUrl
+                            };
+                            capaRecords[capaKey].attachments[section].push(fileObj);
+                            renderAttachmentList(section);
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('⚠️ ไฟล์มีขนาดใหญ่กว่า 2MB แนะนำให้ใช้ไฟล์ PDF ขนาดเล็ก เพื่อป้องกันหน่วยความจำ LocalStorage เต็ม');
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const fileObj = {
+                            name: file.name,
+                            type: file.type,
+                            data: e.target.result
+                        };
+                        capaRecords[capaKey].attachments[section].push(fileObj);
+                        renderAttachmentList(section);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+
+        function removeAttachment(section, index) {
+            const itemId = document.getElementById('modal-item-id').value;
+            const monthIdx = document.getElementById('modal-month-idx').value;
+            const capaKey = `${itemId}_${monthIdx}`;
+            
+            if (capaRecords[capaKey] && capaRecords[capaKey].attachments && capaRecords[capaKey].attachments[section]) {
+                capaRecords[capaKey].attachments[section].splice(index, 1);
+                renderAttachmentList(section);
+            }
+        }
+
+        function renderAttachmentList(section) {
+            const itemId = document.getElementById('modal-item-id').value;
+            const monthIdx = document.getElementById('modal-month-idx').value;
+            const capaKey = `${itemId}_${monthIdx}`;
+            const listEl = document.getElementById(`attachment-list-${section}`);
+            
+            listEl.innerHTML = '';
+            if (capaRecords[capaKey] && capaRecords[capaKey].attachments && capaRecords[capaKey].attachments[section]) {
+                capaRecords[capaKey].attachments[section].forEach((file, index) => {
+                    let fileName = typeof file === 'object' ? file.name : file;
+                    let fileData = typeof file === 'object' ? file.data : '';
+                    let fileType = typeof file === 'object' ? file.type : '';
+                    
+                    if (fileData) {
+                        let escapedData = fileData.replace(/'/g, "\\'");
+                        let escapedName = fileName.replace(/'/g, "\\'");
+                        let escapedType = fileType.replace(/'/g, "\\'");
+                        listEl.innerHTML += `
+                            <div class="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 mt-1">
+                                <div class="flex items-center gap-1.5 truncate cursor-pointer hover:text-blue-700" onclick="openBase64File('${escapedData}', '${escapedName}', '${escapedType}')">
+                                    <span>📎</span> <span class="text-blue-600 underline font-medium truncate">${fileName}</span>
+                                </div>
+                                <button type="button" onclick="removeAttachment('${section}', ${index})" class="text-rose-500 hover:text-rose-700 font-bold px-1.5 py-0.5 text-xs rounded hover:bg-rose-50 transition-colors" title="ลบไฟล์แนบ">✕ ลบ</button>
+                            </div>
+                        `;
+                    } else {
+                        listEl.innerHTML += `
+                            <div class="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 mt-1">
+                                <div class="flex items-center gap-1.5 truncate">
+                                    <span>📎</span> <span class="truncate">${fileName}</span>
+                                </div>
+                                <button type="button" onclick="removeAttachment('${section}', ${index})" class="text-rose-500 hover:text-rose-700 font-bold px-1.5 py-0.5 text-xs rounded hover:bg-rose-50 transition-colors" title="ลบไฟล์แนบ">✕ ลบ</button>
+                            </div>
+                        `;
+                    }
+                });
+            }
+        }
+
+        function getItemDeptPrefix(itemId) {
+            let deptKey = 'Quality';
+            storeData.forEach(sec => {
+                sec.items.forEach(item => {
+                    if (item.id === itemId) {
+                        deptKey = sec.deptKey;
+                    }
+                });
+            });
+            const prefixMap = {
+                'Quality': 'QA',
+                'IT': 'IT',
+                'HR': 'HR',
+                'Sales': 'SALES',
+                'Production': 'PROD'
+            };
+            return prefixMap[deptKey] || 'GEN';
+        }
+
+        function getCarNo(targetKey) {
+            const [targetItemId] = targetKey.split('_');
+            const targetDeptPrefix = getItemDeptPrefix(targetItemId);
+
+            let deptCounter = 1;
+            for (const key in capaRecords) {
+                const [itemId] = key.split('_');
+                const deptPrefix = getItemDeptPrefix(itemId);
+                if (deptPrefix === targetDeptPrefix) {
+                    if (key === targetKey) {
+                        return `${targetDeptPrefix}-2026-${String(deptCounter).padStart(3, '0')}`;
+                    }
+                    deptCounter++;
+                }
+            }
+            return `${targetDeptPrefix}-2026-${String(deptCounter).padStart(3, '0')}`;
+        }
+
+        function updateOwnerSignature(ownerName) {
+            document.getElementById('sign-owner-name').innerText = ownerName || '___________________________';
+        }
+
+        function openCapaModal(itemId, monthIdx) {
+            let selectedItem = null;
+            let currentSec = null;
+            storeData.forEach(sec => {
+                sec.items.forEach(item => {
+                    if (item.id === itemId) {
+                        selectedItem = item;
+                        currentSec = sec;
+                    }
+                });
+            });
+
+            if (!selectedItem) return;
+
+            const capaKey = `${itemId}_${monthIdx}`;
+            const currentCarNo = getCarNo(capaKey);
+            document.getElementById('modal-car-no-badge').innerText = currentCarNo;
+
+            document.getElementById('modal-item-id').value = itemId;
+            document.getElementById('modal-month-idx').value = monthIdx;
+            document.getElementById('modal-kpi-name').innerText = selectedItem.name;
+            document.getElementById('modal-kpi-status-info').innerText = `Target: ${selectedItem.targetText} | Result เดือน ${monthNames[monthIdx]}: ${selectedItem.results[monthIdx]} (ไม่บรรลุเป้าหมาย / ALARM)`;
+
+            const ownerSelect = document.getElementById('capa-owner-select');
+            ownerSelect.innerHTML = '';
+            
+            let deptOwners = [];
+            if (currentSec.deptKey === 'Quality') {
+                deptOwners = ['Akarachai', 'Addim'];
+            } else if (currentSec.deptKey === 'IT') {
+                deptOwners = ['Boonserm'];
+            } else if (currentSec.deptKey === 'HR') {
+                deptOwners = ['Mattana'];
+            } else if (currentSec.deptKey === 'Sales') {
+                deptOwners = ['EUN KWAN SU'];
+            } else if (currentSec.deptKey === 'Production') {
+                deptOwners = ['SEO MIN HYEON'];
+            } else {
+                deptOwners = [currentSec.recorder];
+            }
+
+            deptOwners.forEach(ownerName => {
+                const opt = document.createElement('option');
+                opt.value = ownerName;
+                opt.text = `${ownerName} (${currentSec.deptName})`;
+                ownerSelect.appendChild(opt);
+            });
+
+            const rec = capaRecords[capaKey] || {};
+
+            document.getElementById('capa-problem').value = rec.problem || `เกิดสภาวะ Non-Conformity ในเดือน ${monthNames[monthIdx]} เนื่องจากผลงาน Actual (${selectedItem.results[monthIdx]}) ไม่ผ่านเกณฑ์เป้าหมาย (${selectedItem.targetText})`;
+            document.getElementById('capa-rootcause').value = rec.rootcause || '';
+            document.getElementById('capa-containment').value = rec.containment || '';
+            document.getElementById('capa-preventive').value = rec.preventive || '';
+            
+            const defaultOwner = rec.owner || currentSec.recorder;
+            ownerSelect.value = defaultOwner;
+            document.getElementById('capa-duedate').value = rec.duedate || '';
+            
+            document.getElementById('sign-prepared-name').innerText = currentSec.recorder || 'Akarachai';
+            document.getElementById('sign-owner-name').innerText = defaultOwner;
+
+            const isFilled = rec.rootcause && rec.rootcause.trim() !== "" &&
+                             rec.containment && rec.containment.trim() !== "" &&
+                             rec.preventive && rec.preventive.trim() !== "";
+
+            let statusVal = rec.status;
+            if (!statusVal) {
+                statusVal = isFilled ? 'Pending Approval' : 'Pending Response';
+            }
+            document.getElementById('capa-status').value = statusVal;
+
+            renderAttachmentList('rootcause');
+            renderAttachmentList('containment');
+            renderAttachmentList('preventive');
+
+            const qmrInfoEl = document.getElementById('qmr-status-info-text');
+            const qmrApproveBtn = document.getElementById('qmr-approve-btn');
+
+            if (statusVal === 'Completed') {
+                qmrInfoEl.innerHTML = `<span class="font-bold text-emerald-700">✓ อนุมัติใบงานเรียบร้อยแล้ว (Approved by Mr. KIM)</span><br><span class="text-[11px]">วันที่อนุมัติ: ${rec.approvedDate || '-'}</span>`;
+                qmrApproveBtn.classList.add('hidden');
+            } else if (isFilled) {
+                qmrInfoEl.innerHTML = `<span class="font-semibold text-amber-700">⏳ ผู้รับผิดชอบบันทึกข้อมูลเรียบร้อยแล้ว - อยู่ระหว่างรอ QMR (Mr. KIM) ตรวจสอบและกดอนุมัติ (Pending Approval)</span>`;
+                if (currentUser === 'Addim') {
+                    qmrApproveBtn.classList.remove('hidden');
+                } else {
+                    qmrApproveBtn.classList.add('hidden');
+                }
+            } else {
+                qmrInfoEl.innerHTML = `<span class="font-semibold text-rose-600">⚠️ ยังไม่ได้รับการตอบและบันทึกข้อมูลจากผู้รับผิดชอบ (ยังไม่สามารถอนุมัติได้)</span>`;
+                qmrApproveBtn.classList.add('hidden');
+            }
+
+            document.body.classList.add('modal-open');
+            document.getElementById('capa-modal').classList.remove('hidden');
+        }
+
+        function closeCapaModal() {
+            document.body.classList.remove('modal-open');
+            document.getElementById('capa-modal').classList.add('hidden');
+        }
+
+        function saveCapaAction() {
+            const itemId = document.getElementById('modal-item-id').value;
+            const monthIdx = document.getElementById('modal-month-idx').value;
+            const capaKey = `${itemId}_${monthIdx}`;
+            const currentRec = capaRecords[capaKey] || {};
+
+            const problem = document.getElementById('capa-problem').value;
+            const rootcause = document.getElementById('capa-rootcause').value;
+            const containment = document.getElementById('capa-containment').value;
+            const preventive = document.getElementById('capa-preventive').value;
+
+            const isFilled = rootcause && rootcause.trim() !== "" &&
+                             containment && containment.trim() !== "" &&
+                             preventive && preventive.trim() !== "";
+
+            let newStatus = currentRec.status === 'Completed' ? 'Completed' : (isFilled ? 'Pending Approval' : 'Pending Response');
+
+            capaRecords[capaKey] = {
+                ...currentRec,
+                problem: problem,
+                rootcause: rootcause,
+                containment: containment,
+                preventive: preventive,
+                owner: document.getElementById('capa-owner-select').value,
+                duedate: document.getElementById('capa-duedate').value,
+                status: newStatus,
+                kpiName: document.getElementById('modal-kpi-name').innerText,
+                monthName: monthNames[monthIdx]
+            };
+
+            saveAllData();
+            closeCapaModal();
+            
+            if (isFilled) {
+                alert('📝 บันทึกข้อมูล CAR/PA เรียบร้อยแล้ว! สถานะเปลี่ยนเป็น: รอการตรวจสอบ (Pending Approval)');
+            } else {
+                alert('⚠️ บันทึกข้อมูลแล้ว แต่ยังกรอกรายละเอียดไม่ครบถ้วน (ระบบจะเปลี่ยนสถานะเป็น Pending Approval เมื่อผู้รับผิดชอบกรอกรายละเอียดครบเท่านั้น)');
+            }
+        }
+
+        function approveByQMR() {
+            if (currentUser !== 'Addim') {
+                alert('⚠️ เฉพาะ QMR (User: Addim / Mr. KIM) เท่านั้นที่สามารถทำการอนุมัติใบงานนี้ได้');
+                return;
+            }
+
+            const itemId = document.getElementById('modal-item-id').value;
+            const monthIdx = document.getElementById('modal-month-idx').value;
+            const capaKey = `${itemId}_${monthIdx}`;
+            const rec = capaRecords[capaKey] || {};
+
+            const rootcause = document.getElementById('capa-rootcause').value;
+            const containment = document.getElementById('capa-containment').value;
+            const preventive = document.getElementById('capa-preventive').value;
+
+            if (!rootcause || rootcause.trim() === "" ||
+                !containment || containment.trim() === "" ||
+                !preventive || preventive.trim() === "") {
+                alert('❌ ไม่สามารถอนุมัติได้! เนื่องจากผู้รับผิดชอบยังไม่ได้ตอบรายละเอียดและบันทึก Action Plan ในระบบ');
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            capaRecords[capaKey] = {
+                ...rec,
+                problem: document.getElementById('capa-problem').value,
+                rootcause: rootcause,
+                containment: containment,
+                preventive: preventive,
+                owner: document.getElementById('capa-owner-select').value,
+                duedate: document.getElementById('capa-duedate').value,
+                status: 'Completed',
+                approvedBy: 'Mr. KIM (QMR)',
+                approvedDate: today,
+                kpiName: document.getElementById('modal-kpi-name').innerText,
+                monthName: monthNames[monthIdx]
+            };
+
+            saveAllData();
+            closeCapaModal();
+            alert('✅ QMR (Mr. KIM) อนุมัติ CAR/PA Form ใบงานนี้เรียบร้อยแล้ว!');
+        }
+
+        function deleteCapaRecord(capaKey) {
+            if (confirm("⚠️ คุณต้องการลบรายการ CAR/PA นี้เพื่อให้ผู้รับผิดชอบเริ่มต้นบันทึกข้อมูลใหม่ใช่หรือไม่?")) {
+                delete capaRecords[capaKey];
+                saveAllData();
+                openCarListModal();
+                renderDashboard();
+                alert('🗑️ ลบรายการ CAR/PA เรียบร้อยแล้ว');
+            }
+        }
+
+        function openCarListModal() {
+            const tbody = document.getElementById('car-list-table-body');
+            tbody.innerHTML = '';
+
+            let deptCounters = {};
+            let hasRecords = false;
+
+            for (const key in capaRecords) {
+                hasRecords = true;
+                const rec = capaRecords[key];
+                const [itemId, monthIdx] = key.split('_');
+                const deptPrefix = getItemDeptPrefix(itemId);
+
+                if (!deptCounters[deptPrefix]) deptCounters[deptPrefix] = 1;
+                const carNo = `${deptPrefix}-2026-${String(deptCounters[deptPrefix]).padStart(3, '0')}`;
+                deptCounters[deptPrefix]++;
+                
+                let statusBadge = '';
+                if (rec.status === 'Completed') {
+                    statusBadge = `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold">Completed (Approved)</span>`;
+                } else if (rec.status === 'Pending Approval') {
+                    statusBadge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold animate-pulse">Pending Approval</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full font-semibold">Pending Response</span>`;
+                }
+
+                let attachmentsHtml = '<span class="text-slate-400 text-[10px]">ไม่มีไฟล์แนบ</span>';
+                if (rec.attachments) {
+                    let allFiles = [];
+                    ['rootcause', 'containment', 'preventive'].forEach(secKey => {
+                        if (rec.attachments[secKey] && rec.attachments[secKey].length > 0) {
+                            rec.attachments[secKey].forEach(f => {
+                                let fName = typeof f === 'object' ? f.name : f;
+                                let fData = typeof f === 'object' ? f.data : '';
+                                let fType = typeof f === 'object' ? f.type : '';
+                                allFiles.push({ section: secKey, name: fName, data: fData, type: fType });
+                            });
+                        }
+                    });
+                    if (allFiles.length > 0) {
+                        attachmentsHtml = '<div class="space-y-1 text-left">';
+                        allFiles.forEach(f => {
+                            let secLabel = f.section === 'rootcause' ? 'Root Cause' : (f.section === 'containment' ? 'Containment' : 'Preventive');
+                            if (f.data) {
+                                let escapedData = f.data.replace(/'/g, "\\'");
+                                let escapedName = f.name.replace(/'/g, "\\'");
+                                let escapedType = f.type.replace(/'/g, "\\'");
+                                attachmentsHtml += `<div class="flex items-center gap-1 text-[11px] cursor-pointer hover:text-blue-700" onclick="openBase64File('${escapedData}', '${escapedName}', '${escapedType}')"><span class="text-blue-600 font-medium underline">📎 ${f.name}</span> <span class="text-slate-400 text-[9px]">(${secLabel})</span></div>`;
+                            } else {
+                                attachmentsHtml += `<div class="flex items-center gap-1 text-[11px] text-slate-600">📎 ${f.name} <span class="text-slate-400 text-[9px]">(${secLabel})</span></div>`;
+                            }
+                        });
+                        attachmentsHtml += '</div>';
+                    }
+                }
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-2.5 border border-slate-300 text-center font-bold text-slate-700">${carNo}</td>
+                        <td class="p-2.5 border border-slate-300">
+                            <div class="font-bold text-slate-800">${rec.kpiName || 'KPI Action Item'}</div>
+                            <div class="text-[10px] text-slate-500">เดือนที่เกิดปัญหา: ${rec.monthName || '-'}</div>
+                        </td>
+                        <td class="p-2.5 border border-slate-300 text-center">${rec.owner || '-'}</td>
+                        <td class="p-2.5 border border-slate-300 text-center">${rec.duedate || '-'}</td>
+                        <td class="p-2.5 border border-slate-300">${attachmentsHtml}</td>
+                        <td class="p-2.5 border border-slate-300 text-center">${statusBadge}</td>
+                        <td class="p-2.5 border border-slate-300 text-center">
+                            <div class="flex items-center justify-center space-x-1.5">
+                                <button onclick="closeCarListModal(); openCapaModal('${itemId}', ${monthIdx})" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px]">เปิดดู/แก้ไข</button>
+                                <button onclick="deleteCapaRecord('${key}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px]" title="ลบรายการเพื่อบันทึกใหม่">✕ ลบ</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            if (!hasRecords) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">ยังไม่มีรายการ CAR/PA ที่ถูกบันทึกในระบบ</td></tr>`;
+            }
+
+            document.body.classList.add('modal-open');
+            document.getElementById('car-list-modal').classList.remove('hidden');
+        }
+
+        function closeCarListModal() {
+            document.body.classList.remove('modal-open');
+            document.getElementById('car-list-modal').classList.add('hidden');
+        }
+
+        function printCapaForm() {
+            document.body.classList.add('modal-open');
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
+    </script>
+</body>
+</html>
